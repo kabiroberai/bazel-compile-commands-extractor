@@ -747,17 +747,25 @@ def _get_apple_SDKROOT(SDK_name: str):
     # Traditionally stored in SDKROOT environment variable, but not provided by Bazel. See https://github.com/bazelbuild/bazel/issues/12852
 
 
-def _get_apple_platform(compile_args: typing.List[str]):
+def _get_apple_platform(compile_action):
     """Figure out which Apple platform a command is for.
 
     Is the name used by Xcode in the SDK files, not the marketing name.
     e.g. iPhoneOS, not iOS.
     """
+    compile_args = compile_action.arguments
     # A bit gross, but Bazel specifies the platform name in one of the include paths, so we mine it from there.
     for arg in compile_args:
         match = re.search('/Platforms/([a-zA-Z]+).platform/Developer/', arg)
         if match:
             return match.group(1)
+    if getattr(compile_action, 'environmentVariables', None):
+         match = next(
+             filter(lambda x: x.key == "APPLE_SDK_PLATFORM", compile_action.environmentVariables),
+             None
+         )
+         if match:
+             return match.value
     return None
 
 
@@ -815,7 +823,7 @@ def _apple_platform_patch(compile_action):
         # We also have to manually figure out the values of SDKROOT and DEVELOPER_DIR, since they're missing from the environment variables Bazel provides.
         # Filed Bazel issue about the missing environment variables: https://github.com/bazelbuild/bazel/issues/12852
         compile_args = [arg.replace('__BAZEL_XCODE_DEVELOPER_DIR__', _get_apple_DEVELOPER_DIR()) for arg in compile_args]
-        apple_platform = _get_apple_platform(compile_args)
+        apple_platform = _get_apple_platform(compile_action)
         assert apple_platform, f"Apple platform not detected in CMD: {compile_args}"
         compile_args = [arg.replace('__BAZEL_XCODE_SDKROOT__', _get_apple_SDKROOT(apple_platform)) for arg in compile_args]
 
