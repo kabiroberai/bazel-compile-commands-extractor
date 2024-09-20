@@ -760,12 +760,9 @@ def _get_apple_platform(compile_action):
         if match:
             return match.group(1)
     if getattr(compile_action, 'environmentVariables', None):
-         match = next(
-             filter(lambda x: x.key == "APPLE_SDK_PLATFORM", compile_action.environmentVariables),
-             None
-         )
+         match = compile_action.environmentVariables.get("APPLE_SDK_PLATFORM")
          if match:
-             return match.value
+             return match
     return None
 
 
@@ -792,6 +789,19 @@ def _swift_patch(compile_action):
 
         assert len(compile_args) > 0, "No compiler found in swift_path"
         compile_args[0] = 'swiftc'
+
+        # Replace '-Xfrontend -load-plugin-executable -Xfrontend <path>' with '-load-plugin-executable <path>'
+        new_compile_args = []
+        i = 0
+        while i < len(compile_args):
+            if compile_args[i] == '-Xfrontend' and compile_args[i + 1] == '-load-plugin-executable':
+                new_compile_args.append(compile_args[i + 1])
+                new_compile_args.append(compile_args[i + 3])
+                i += 4
+            else:
+                new_compile_args.append(compile_args[i])
+                i += 1
+        compile_args = new_compile_args
 
         # Remove -Xwrapped-swift introduced by rules_swift
         compile_args = [arg for arg in compile_args if not arg.startswith('-Xwrapped-swift')]
