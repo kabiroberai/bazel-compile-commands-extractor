@@ -790,21 +790,27 @@ def _swift_patch(compile_action):
         assert len(compile_args) > 0, "No compiler found in swift_path"
         compile_args[0] = 'swiftc'
 
-        # Replace '-Xfrontend -load-plugin-executable -Xfrontend <path>' with '-load-plugin-executable <path>'
+        execroot = pathlib.Path(os.readlink('bazel-out')).parent
+        file_prefix_map = f'{execroot}=.'
+
         new_compile_args = []
         i = 0
         while i < len(compile_args):
-            if compile_args[i] == '-Xfrontend' and compile_args[i + 1] == '-load-plugin-executable':
+            arg = compile_args[i]
+            if arg == '-Xfrontend' and compile_args[i + 1] == '-load-plugin-executable':
+                # Replace '-Xfrontend -load-plugin-executable -Xfrontend <path>' with '-load-plugin-executable <path>'
                 new_compile_args.append(compile_args[i + 1])
                 new_compile_args.append(compile_args[i + 3])
-                i += 4
+                i += 3
+            elif arg.startswith('-Xwrapped-swift='):
+                rest = arg[len('-Xwrapped-swift='):]
+                if rest == '-file-prefix-pwd-is-dot':
+                    new_compile_args.append('-file-prefix-map')
+                    new_compile_args.append(file_prefix_map)
             else:
-                new_compile_args.append(compile_args[i])
-                i += 1
+                new_compile_args.append(arg)
+            i += 1
         compile_args = new_compile_args
-
-        # Remove -Xwrapped-swift introduced by rules_swift
-        compile_args = [arg for arg in compile_args if not arg.startswith('-Xwrapped-swift')]
 
     return compile_args
 
