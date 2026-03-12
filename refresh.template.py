@@ -129,6 +129,10 @@ def _get_bazel_version():
 @functools.lru_cache(maxsize=None)
 def _get_bazel_cached_action_keys():
     """Gets the set of actionKeys cached in bazel-out."""
+
+    # broken in bazel 9
+    return set()
+
     action_cache_process = subprocess.run(
         ['bazel', 'dump', '--action_cache'],
         # MIN_PY=3.7: Replace PIPEs with capture_output.
