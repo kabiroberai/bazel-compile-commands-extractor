@@ -633,6 +633,13 @@ def _warn_if_file_doesnt_exist(source_file):
     return False
 _warn_if_file_doesnt_exist.has_logged_missing_file_error = False
 
+def _warn_no_files_found(args):
+    if _warn_no_files_found.has_logged_no_files_warning:
+        return
+    _warn_no_files_found.has_logged_no_files_warning = True
+    log_warning(f">>> No source files found in compile args: {args}.\nPlease file an issue with this information!")
+_warn_no_files_found.has_logged_no_files_warning = False
+
 def _get_files(compile_action):
     """Gets the ({source files}, {header files}) clangd should be told the command applies to."""
 
@@ -648,7 +655,10 @@ def _get_files(compile_action):
 
     # First, we do the obvious thing: Filter args to those that look like source files.
     source_file_candidates = [arg for arg in compile_action.arguments if not arg.startswith('-') and arg.endswith(_get_files.clang_source_extensions)]
-    assert source_file_candidates, f"No source files found in compile args: {compile_action.arguments}.\nPlease file an issue with this information!"
+    if not source_file_candidates:
+        _warn_no_files_found(compile_action.arguments)
+        return set(), set()
+
     source_file = source_file_candidates[0]
 
     # If we've got multiple candidates for source files, apply heuristics based on how Bazel tends to format commands.
